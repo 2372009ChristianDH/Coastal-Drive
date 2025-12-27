@@ -7,7 +7,9 @@ const config = {
     roadLength: 2.5,    // Panjang setiap potongan jalan
     roadCount: 50,      // Jarak pandang jalan
     roadWidth: 14,      // Lebar jalan
-    sandWidth: 15,      // Lebar pantai
+    steeringSpeed: 0.05, // Kecepatan kemudi
+    maxSteerX: 5,     // Batas kemudi
+    sandWidth: 10,      // Lebar pantai
     waterWidth: 200,    // Luas laut
     lanes: [-4, 0, 4],  
 };
@@ -54,8 +56,13 @@ const loader = new GLTFLoader();
 let car = null;
 let roads = [];
 let environments = [];
-let currentLaneIndex = 1;
 let carPosX = 0;
+let keys = {
+    a: false,
+    d: false,
+    ArrowLeft: false,
+    ArrowRight: false,
+};
 
 // Fungsi membuat pantai
 function pantai(zPos) {
@@ -102,6 +109,18 @@ async function loadAssets() {
         const z = -i * config.roadLength;
         const road = roadModel.clone();
 
+            // Loop untuk mencari dan menghilangkan garis kuning
+        road.traverse(n => {
+            if (n.isMesh) {
+                // Cek nama mesh sesuai yang kamu temukan di editor
+                if (n.name === "mesh1357725606_1") {
+                    n.visible = false; // Cara 1: Sembunyikan
+                    // n.geometry.dispose(); // Cara 2: Hapus dari memori agar lebih ringan
+                }
+                n.receiveShadow = true;
+            }
+        });
+
         road.scale.set(config.roadWidth, 1, 1);
         road.position.z = z;
         road.traverse(n => { if (n.isMesh) n.receiveShadow = true; });
@@ -115,8 +134,22 @@ async function loadAssets() {
     }
 
     // Load Mobil
-    const carGLTF = await loader.loadAsync('./models/Chevrolet Camaro.glb');
+    const carGLTF = await loader.loadAsync('./models/Car Hatchback.glb');
     car = carGLTF.scene;
+
+    car.scale.set(5, 5, 5);
+
+    // warna body mobil
+    car.traverse((child) => {
+    if (child.isMesh) {
+        if (child.name === "main_car_1") { 
+            child.material.color.set(0xffff00); 
+            child.material.metalness = 0.8;
+            child.material.roughness = 0.2;
+        }
+        child.castShadow = true;
+    }
+});
 
     car.traverse(n => {
         if (n.isMesh) {
@@ -136,17 +169,20 @@ loadAssets();
 
 // Kontrol Keyboard
 window.addEventListener('keydown', (e) => {
-    if ((e.key === 'a' || e.key === 'ArrowLeft') && currentLaneIndex > 0) {
-        currentLaneIndex--;}
-    if ((e.key === 'd' || e.key === 'ArrowRight') && currentLaneIndex < 2) {
-        currentLaneIndex++;
-    }
+    if (keys.hasOwnProperty(e.key)) keys[e.key] = true;
+});
+
+window.addEventListener('keyup', (e) => {
+    if (keys.hasOwnProperty(e.key)) keys[e.key] = false;
 });
 
 // Animasi Loop
 const resetThreshold = 15; 
 const totalLength = config.roadCount * config.roadLength;
 const clock = new THREE.Clock();
+
+let carTilt = 0;
+let carSteer = 0;
 
 function draw() {
     const delta = clock.getDelta();
@@ -165,17 +201,32 @@ function draw() {
 
     // Gerakan Mobil
     if (car) {
-        const targetX = config.lanes[currentLaneIndex];
+        if(keys.a || keys.ArrowLeft) {
+            carPosX -= config.steeringSpeed;
+            carTilt = THREE.MathUtils.lerp(carTilt,0.2,0.1);
+            carSteer = THREE.MathUtils.lerp(carSteer,0.2,0.1);
+        } else if(keys.d || keys.ArrowRight) {
+            carPosX += config.steeringSpeed;
+            carTilt = THREE.MathUtils.lerp(carTilt,-0.2,0.1);
+            carSteer = THREE.MathUtils.lerp(carSteer,-0.2,0.1);
+        } else {
+            carTilt = THREE.MathUtils.lerp(carTilt,0,0.1);
+            carSteer = THREE.MathUtils.lerp(carSteer,0,0.1);
+        }
 
-        carPosX += (targetX - carPosX) * 0.05;
+        carPosX = THREE.MathUtils.clamp(carPosX, -config.maxSteerX, config.maxSteerX);
 
-        let tMatrix = new THREE.Matrix4().makeTranslation(carPosX, 0.2, 0);
-        let rMatrix = new THREE.Matrix4().makeRotationY(Math.PI);
-        let result = new THREE.Matrix4().multiplyMatrices(tMatrix, rMatrix);
+        let tMatrix = new THREE.Matrix4().makeTranslation(carPosX, 0.25, 0);
+        let sMatrix = new THREE.Matrix4().makeScale(5, 5, 5);
+
+        let rMatrix = new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(0, Math.PI + carTilt , carSteer));
+
+        let result = new THREE.Matrix4().multiplyMatrices(tMatrix, rMatrix ).multiply(sMatrix);
         car.matrix.copy(result);
 
-        cam.position.x = carPosX * 0.15;
-        cam.lookAt(carPosX * 0.3, 1, -5);
+        const targetCamX = carPosX * 0.1; 
+        cam.position.x = THREE.MathUtils.lerp(cam.position.x, targetCamX, 0.02);
+        cam.lookAt(carPosX * 0.05,1,-10)
     }
 
     renderer.render(scene, cam);
