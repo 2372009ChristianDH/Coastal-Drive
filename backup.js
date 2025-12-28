@@ -69,7 +69,7 @@ let keys = {
 
 
 // Fungsi membuat pantai
-function pantai(zPos) {
+function pantai(zPos, modelPagar) {
     const group = new THREE.Group();
     const sandMat = new THREE.MeshStandardMaterial({ map: sandTexture, roughness: 0.8 });
     const waterMat = new THREE.MeshStandardMaterial({ 
@@ -80,6 +80,23 @@ function pantai(zPos) {
 
     const sandGeo = new THREE.PlaneGeometry(config.sandWidth, config.roadLength);
     const waterGeo = new THREE.PlaneGeometry(config.waterWidth, config.roadLength);
+
+    // --- POSISI PAGAR ---
+    if (modelPagar) {
+        // Pagar Kanan
+        const fenceR = modelPagar.clone();
+        // Letakkan tepat di pinggir jalan (roadWidth / 2)
+        fenceR.position.set(config.roadWidth / 2, -0.8, zPos); 
+        // Putar jika perlu menyesuaikan arah hadap pagar (contoh: 90 derajat)
+        fenceR.rotation.y = Math.PI / 2; 
+        group.add(fenceR);
+
+        // Pagar Kiri
+        const fenceL = modelPagar.clone();
+        fenceL.position.set(-config.roadWidth / 2, -0.8, zPos);
+        fenceL.rotation.y = -Math.PI / 2;
+        group.add(fenceL);
+    }
 
     const sandR = new THREE.Mesh(sandGeo, sandMat);
     sandR.rotation.x = -Math.PI / 2;
@@ -106,34 +123,34 @@ function pantai(zPos) {
 // Load Objek 3d
 async function loadAssets() {
 
-    // Load Jalan
+    // 1. Load Pagar Terlebih Dahulu
+    const fenceGLTF = await loader.loadAsync('./models/Fence Long.glb');
+    let fenceModel = fenceGLTF.scene;
+
+    fenceModel.scale.set(1,1,1); 
+
+    // 2. Load Jalan
     const roadGLTF = await loader.loadAsync('./models/Road Piece Straight.glb');
     const roadModel = roadGLTF.scene;
 
     for (let i = -2; i < config.roadCount; i++) {
         const z = -i * config.roadLength;
+        
+        // Buat jalan
         const road = roadModel.clone();
-
-        // Loop untuk mencari dan menghilangkan garis kuning
         road.traverse(n => {
             if (n.isMesh) {
-                // Cek nama mesh sesuai yang kamu temukan di editor
-                if (n.name === "mesh1357725606_1") {
-                    n.visible = false; // Cara 1: Sembunyikan
-                    // n.geometry.dispose(); // Cara 2: Hapus dari memori agar lebih ringan
-                }
+                if (n.name === "mesh1357725606_1") n.visible = false;
                 n.receiveShadow = true;
             }
         });
-
         road.scale.set(config.roadWidth, 1, 1);
         road.position.z = z;
-        road.traverse(n => { if (n.isMesh) n.receiveShadow = true; });
-
         scene.add(road);
         roads.push(road);
 
-        const env = pantai(z);
+        // Kirim fenceModel ke fungsi pantai
+        const env = pantai(z, fenceModel); 
         scene.add(env);
         environments.push(env);
     }
