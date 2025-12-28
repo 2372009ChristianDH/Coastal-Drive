@@ -107,9 +107,34 @@
             background-size: 100% 4px, 3px 100%;
             pointer-events: none;
         }
+        #speedometer {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-family: 'Bungee', cursive; 
+            z-index: 5;
+            text-shadow: 2px 2px 0px #000;
+        }
+
+        #speedometer .unit {
+            font-size: 14px;
+            opacity: 0.8;
+            display: block;
+            margin-bottom: -10px;
+        }
+
+        #speed-value {
+            font-size: 48px;
+            letter-spacing: -2px;
+        }
     </style>
 </head>
 <body>
+    <div id="speedometer">
+        <span class="unit">KM/H</span>
+        <div id="speed-value">0</div>
+    </div>
     <div id="dashboard">
         <div class="menu-container">
             <div class="sub-logo">Endless Summer</div>

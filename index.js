@@ -3,9 +3,9 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 // Konfigurasi dasar
 const config = {
-    speed: 0.5,         // kecepatan mobil
+    speed: 1,         // kecepatan mobil
     roadLength: 2.5,    // Panjang setiap potongan jalan
-    roadCount: 50,      // Jarak pandang jalan
+    roadCount: 100,      // Jarak pandang jalan
     roadWidth: 14,      // Lebar jalan
     steeringSpeed: 0.05, // Kecepatan kemudi
     maxSteerX: 5,     // Batas kemudi
@@ -18,7 +18,7 @@ const scene = new THREE.Scene();
 // Warna langit
 scene.background = new THREE.Color(0x87ceeb); 
 // Efek kabut
-scene.fog = new THREE.FogExp2(0x87ceeb, 0.015);
+scene.fog = new THREE.FogExp2(0x87ceeb, 0.009);
 const cam = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.05, 1000);
 // Kamera diposisikan sedikit lebih rendah untuk kesan kecepatan
 cam.position.set(0, 5, 12);
@@ -144,18 +144,6 @@ async function loadAssets() {
 
     car.scale.set(5, 5, 5);
 
-    // warna body mobil
-    car.traverse((child) => {
-    if (child.isMesh) {
-        if (child.name === "main_car_1") { 
-            child.material.color.set(0xffff00); 
-            child.material.metalness = 0.8;
-            child.material.roughness = 0.2;
-        }
-        child.castShadow = true;
-    }
-});
-
     car.traverse(n => {
         if (n.isMesh) {
             n.castShadow = true;
@@ -166,19 +154,60 @@ async function loadAssets() {
     car.matrixAutoUpdate = false;
     scene.add(car);
 
+        // warna body mobil
+//     car.traverse((child) => {
+//     if (child.isMesh) {
+//         if (child.name === "main_car_1") { 
+//             child.material.color.set(0xffff00); 
+//             child.material.metalness = 0.8;
+//             child.material.roughness = 0.2;
+//         }
+//         child.castShadow = true;
+//     }
+// });
+
+    //load obstacles models
+    const coneGLTF = await loader.loadAsync('./models/Traffic Cone.glb');
+    coneModel = coneGLTF.scene;
+    coneModel.traverse(n => { if (n.isMesh) n.castShadow = true; });
+
+    const fenceGLTF = await loader.loadAsync('./models/Fence Long.glb');
+    fenceModel = fenceGLTF.scene;
+    fenceModel.traverse(n => { if (n.isMesh) n.castShadow = true; });
+
+
     draw();
 }
 
 loadAssets();
 
+function spawnObstacle() {
+    if (!gameStarted) return;
+
+    const isCone = Math.random() > 0.5;
+    const obstacle = isCone ? coneModel.clone() : fenceModel.clone();
+
+    const scale = isCone ? 2 : 1.5; 
+    obstacle.scale.set(scale, scale, scale);
+
+    const randomX = (Math.random() - 0.5) * (config.maxSteerX * 2);
+    
+    obstacle.position.set(randomX, 0, -100); 
+    
+    scene.add(obstacle);
+    obstacles.push(obstacle);
+}
+
 
 // Kontrol Keyboard
+
 window.addEventListener('keydown', (e) => {
     if (keys.hasOwnProperty(e.key)) keys[e.key] = true;
 
     if (e.key.toLowerCase() === 'j' && !gameStarted) {
         gameStarted = true;
         dashboard.style.opacity = '0';
+        dashboard.style.pointerEvents = 'none';
         setTimeout(() => {
             dashboard.style.display = 'none';
         }, 500);
@@ -190,10 +219,15 @@ window.addEventListener('keyup', (e) => {
 });
 
 
+let obstacles = [];
+let coneModel, fenceModel;
+let spawnTimer = 0;
+
 // Animasi Loop
 const resetThreshold = 15; 
 const totalLength = config.roadCount * config.roadLength;
 const clock = new THREE.Clock();
+const speedDisplay = document.getElementById('speed-value');
 
 let carTilt = 0;
 let carSteer = 0;
@@ -212,11 +246,11 @@ function draw() {
             if (keys.a || keys.ArrowLeft) {
                 carPosX -= config.steeringSpeed;
                 carTilt = THREE.MathUtils.lerp(carTilt, 0.2, 0.1);
-                carSteer = THREE.MathUtils.lerp(carSteer, 0.2, 0.1);
+                carSteer = THREE.MathUtils.lerp(carSteer, 0.1, 0.1);
             } else if (keys.d || keys.ArrowRight) {
                 carPosX += config.steeringSpeed;
                 carTilt = THREE.MathUtils.lerp(carTilt, -0.2, 0.1);
-                carSteer = THREE.MathUtils.lerp(carSteer, -0.2, 0.1);
+                carSteer = THREE.MathUtils.lerp(carSteer, -0.1, 0.1);
             } else {
                 carTilt = THREE.MathUtils.lerp(carTilt, 0, 0.1);
                 carSteer = THREE.MathUtils.lerp(carSteer, 0, 0.1);
@@ -228,7 +262,7 @@ function draw() {
         // Update Matrix Transformasi Mobil
         let tMatrix = new THREE.Matrix4().makeTranslation(carPosX, 0.25, 0);
         let sMatrix = new THREE.Matrix4().makeScale(5, 5, 5);
-        let rMatrix = new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(0, Math.PI + carTilt, carSteer));
+        let rMatrix = new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(0, Math.PI + carSteer, carTilt));
         let result = new THREE.Matrix4().multiplyMatrices(tMatrix, rMatrix).multiply(sMatrix);
         car.matrix.copy(result);
 
@@ -240,9 +274,10 @@ function draw() {
 
     // 2. Logika Pergerakan Lingkungan
     if (gameStarted) {
-        // Transisi akselerasi halus dari 0 ke config.speed
-        speedMultiplier = THREE.MathUtils.lerp(speedMultiplier, 1, 0.02);
+
         const currentSpeed = config.speed * speedMultiplier;
+        // Transisi akselerasi halus dari 0 ke config.speed
+        speedMultiplier = THREE.MathUtils.lerp(speedMultiplier, 1, 0.003);
 
         for (let i = 0; i < roads.length; i++) {
             roads[i].position.z += currentSpeed;
@@ -251,6 +286,45 @@ function draw() {
             if (roads[i].position.z > resetThreshold) {
                 roads[i].position.z -= totalLength;
                 environments[i].position.z -= totalLength;
+            }
+        }
+        // Update speedometer
+        const currentKmh = Math.floor(currentSpeed * 100);
+        speedDisplay.textContent = currentKmh.toString();
+    }
+
+    //3. Logika obstacle slowdown
+
+    if (gameStarted) {
+        spawnTimer += delta;
+        if (spawnTimer > 1.5) { // spawn setiap 1.5 detik
+            spawnObstacle();
+            spawnTimer = 0;
+        }
+
+        // Update posisi obstacles
+        for (let i = obstacles.length - 1; i >= 0; i--){
+            const obs = obstacles[i];
+            obs.position.z += config.speed * speedMultiplier;
+
+            // Hapus obstacle jika sudah melewati mobil
+            if(car){
+                const dx = carPosX - obs.position.x;
+                const dz = 0 - obs.position.z; 
+                const distance = Math.sqrt(dx * dx + dz * dz);
+                if(distance < 1.2){
+                    speedMultiplier = 0.02; //slow
+
+                    scene.remove(obs);
+                    obstacles.splice(i, 1);
+                    continue;
+
+                }
+            }
+
+            if (obs.position.z > resetThreshold) {
+                scene.remove(obs);
+                obstacles.splice(i, 1);
             }
         }
     }
