@@ -1,13 +1,14 @@
 <head>
-    <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Inter:wght@400;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Inter:wght@400;900&display=swap"
+        rel="stylesheet">
     <style>
-        body { 
-            margin: 0; 
-            overflow: hidden; 
-            background-color: #000; 
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
             font-family: 'Inter', sans-serif;
         }
-        
+
         #dashboard {
             position: absolute;
             top: 0;
@@ -19,7 +20,7 @@
             justify-content: center;
             align-items: center;
             /* Overlay gradient untuk memberi kedalaman */
-            background: radial-gradient(circle, rgba(0,0,0,0) 0%, rgba(0,0,0,0.4) 100%);
+            background: radial-gradient(circle, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.4) 100%);
             transition: opacity 0.8s ease-out, visibility 0.8s;
             color: white;
             z-index: 10;
@@ -36,16 +37,16 @@
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         }
 
-        .logo { 
+        .logo {
             font-family: 'Bungee', cursive;
-            font-size: 80px; 
-            margin: 0; 
+            font-size: 80px;
+            margin: 0;
             line-height: 1;
             /* Efek teks gradasi */
             background: linear-gradient(to bottom, #fff 40%, #888 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            filter: drop-shadow(0 5px 15px rgba(0,0,0,0.8));
+            filter: drop-shadow(0 5px 15px rgba(0, 0, 0, 0.8));
             letter-spacing: 2px;
             transform: skew(-5deg);
         }
@@ -54,7 +55,8 @@
             font-size: 14px;
             text-transform: uppercase;
             letter-spacing: 8px;
-            color: #ffd700; /* Warna emas/pantai */
+            color: #ffd700;
+            /* Warna emas/pantai */
             margin-bottom: 10px;
             font-weight: 900;
         }
@@ -68,30 +70,43 @@
         }
 
         .key-badge {
-            background: rgba(255,255,255,0.2);
+            background: rgba(255, 255, 255, 0.2);
             padding: 5px 12px;
             border-radius: 6px;
             font-size: 12px;
-            border-bottom: 3px solid rgba(255,255,255,0.3);
+            border-bottom: 3px solid rgba(255, 255, 255, 0.3);
         }
 
-        .start-text { 
-            margin-top: 40px; 
-            font-size: 20px; 
+        .start-text {
+            margin-top: 40px;
+            font-size: 20px;
             font-weight: bold;
             letter-spacing: 4px;
             color: #fff;
-            animation: pulse 1.5s infinite; 
+            animation: pulse 1.5s infinite;
             padding: 15px 30px;
             border: 2px solid #fff;
             border-radius: 50px;
             cursor: pointer;
         }
 
-        @keyframes pulse { 
-            0% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(255,255,255,0.4); }
-            50% { transform: scale(1.05); opacity: 0.7; box-shadow: 0 0 20px 10px rgba(255,255,255,0); }
-            100% { transform: scale(1); opacity: 1; }
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+                box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4);
+            }
+
+            50% {
+                transform: scale(1.05);
+                opacity: 0.7;
+                box-shadow: 0 0 20px 10px rgba(255, 255, 255, 0);
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
         }
 
         /* Menambahkan scanline effect agar terasa retro game */
@@ -102,17 +117,18 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), 
-                        linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%),
+                linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
             background-size: 100% 4px, 3px 100%;
             pointer-events: none;
         }
+
         #speedometer {
             position: absolute;
             top: 20px;
             left: 20px;
             color: white;
-            font-family: 'Bungee', cursive; 
+            font-family: 'Bungee', cursive;
             z-index: 5;
             text-shadow: 2px 2px 0px #000;
         }
@@ -128,25 +144,106 @@
             font-size: 48px;
             letter-spacing: -2px;
         }
+
+        /* score */
+        #scoreboard {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: white;
+            font-family: 'Bungee', cursive;
+            z-index: 5;
+            text-shadow: 2px 2px 0px #000;
+            text-align: right;
+        }
+
+        #scoreboard .unit {
+            font-size: 14px;
+            opacity: 0.8;
+            display: block;
+            margin-bottom: -10px;
+        }
+
+        #score-value {
+            font-size: 48px;
+            letter-spacing: -2px;
+        }
+
+        #timer {
+            position: absolute;
+            top: 100px;
+            right: 20px;
+            color: white;
+            font-family: 'Bungee', cursive;
+            z-index: 5;
+            text-shadow: 2px 2px 0px #000;
+            text-align: right;
+        }
+
+        #timer .unit {
+            font-size: 14px;
+            opacity: 0.8;
+            display: block;
+            margin-bottom: -10px;
+        }
+
+        #time-value {
+            font-size: 42px;
+            letter-spacing: -2px;
+        }
+
+        #game-over{
+            position: absolute;
+            inset: 0;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0,0,0,0.85);
+            color: white;
+            z-index: 20;
+            text-align: center;
+            font-family: 'Bungee', cursive;
+        }
     </style>
 </head>
+
 <body>
     <div id="speedometer">
         <span class="unit">KM/H</span>
         <div id="speed-value">0</div>
     </div>
+    <div id="scoreboard">
+        <span class="unit">DISTANCE (M)</span>
+        <div id="score-value">0</div>
+    </div>
+    <div id="timer">
+        <span class="unit">TIME</span>
+        <div id="time-value">60</div>
+    </div>
+
     <div id="dashboard">
         <div class="menu-container">
             <div class="sub-logo">Endless Summer</div>
             <h1 class="logo">COASTAL<br>DRIVE</h1>
-            
+
             <div class="controls-hint">
-                <div><span class="key-badge">A</span> <span class="key-badge">D</span> <span class="key-badge">-></span> <span class="key-badge"><-</span> STEER</div>
+                <div><span class="key-badge">A</span> <span class="key-badge">D</span> <span class="key-badge">-></span>
+                    <span class="key-badge"><-< /span> STEER
+                </div>
                 <div><span class="key-badge">J</span> START</div>
             </div>
 
             <div class="start-text">PRESS [ J ] TO START</div>
         </div>
     </div>
+
+    <div id="game-over">
+        <div>
+            <h1 style="font-size:72px;margin:0;">GAME OVER</h1>
+            <p style="font-size:24px;letter-spacing:4px;">FINAL DISTANCE</p>
+            <div id="final-score" style="font-size:48px;">0 M</div>
+        </div>
+    </div>
+
     <script type="module" src="index.js"></script>
 </body>

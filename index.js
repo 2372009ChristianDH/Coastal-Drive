@@ -11,12 +11,12 @@ const config = {
     maxSteerX: 5,     // Batas kemudi
     sandWidth: 10,      // Lebar pantai
     waterWidth: 200,    // Luas laut
-    lanes: [-4, 0, 4],  
+    lanes: [-4, 0, 4],
 };
 
 const scene = new THREE.Scene();
 // Warna langit
-scene.background = new THREE.Color(0x87ceeb); 
+scene.background = new THREE.Color(0x87ceeb);
 // Efek kabut
 scene.fog = new THREE.FogExp2(0x87ceeb, 0.009);
 const cam = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.05, 1000);
@@ -52,7 +52,7 @@ sandTexture.wrapS = sandTexture.wrapT = THREE.RepeatWrapping;
 sandTexture.repeat.set(1, 10);
 
 // control mulai game
-let gameStarted = false; 
+let gameStarted = false;
 const dashboard = document.getElementById('dashboard');
 
 const loader = new GLTFLoader();
@@ -72,7 +72,7 @@ let keys = {
 function pantai(zPos) {
     const group = new THREE.Group();
     const sandMat = new THREE.MeshStandardMaterial({ map: sandTexture, roughness: 0.8 });
-    const waterMat = new THREE.MeshStandardMaterial({ 
+    const waterMat = new THREE.MeshStandardMaterial({
         map: waterTexture,
         roughness: 0.8,
         metalness: 0.1,
@@ -154,17 +154,17 @@ async function loadAssets() {
     car.matrixAutoUpdate = false;
     scene.add(car);
 
-        // warna body mobil
-//     car.traverse((child) => {
-//     if (child.isMesh) {
-//         if (child.name === "main_car_1") { 
-//             child.material.color.set(0xffff00); 
-//             child.material.metalness = 0.8;
-//             child.material.roughness = 0.2;
-//         }
-//         child.castShadow = true;
-//     }
-// });
+    // warna body mobil
+    //     car.traverse((child) => {
+    //     if (child.isMesh) {
+    //         if (child.name === "main_car_1") { 
+    //             child.material.color.set(0xffff00); 
+    //             child.material.metalness = 0.8;
+    //             child.material.roughness = 0.2;
+    //         }
+    //         child.castShadow = true;
+    //     }
+    // });
 
     //load obstacles models
     const coneGLTF = await loader.loadAsync('./models/Traffic Cone.glb');
@@ -187,13 +187,13 @@ function spawnObstacle() {
     const isCone = Math.random() > 0.5;
     const obstacle = isCone ? coneModel.clone() : fenceModel.clone();
 
-    const scale = isCone ? 2 : 1.5; 
+    const scale = isCone ? 2 : 1.5;
     obstacle.scale.set(scale, scale, scale);
 
     const randomX = (Math.random() - 0.5) * (config.maxSteerX * 2);
-    
-    obstacle.position.set(randomX, 0, -100); 
-    
+
+    obstacle.position.set(randomX, 0, -100);
+
     scene.add(obstacle);
     obstacles.push(obstacle);
 }
@@ -206,12 +206,23 @@ window.addEventListener('keydown', (e) => {
 
     if (e.key.toLowerCase() === 'j' && !gameStarted) {
         gameStarted = true;
+        gameOver = false;
+
+        // RESET TIMER & SCORE
+        timeLeft = 60;
+        distance = 0;
+
+        timeDisplay.textContent = timeLeft;
+        scoreDisplay.textContent = distance;
+
         dashboard.style.opacity = '0';
         dashboard.style.pointerEvents = 'none';
+
         setTimeout(() => {
             dashboard.style.display = 'none';
         }, 500);
     }
+
 });
 
 window.addEventListener('keyup', (e) => {
@@ -224,7 +235,7 @@ let coneModel, fenceModel;
 let spawnTimer = 0;
 
 // Animasi Loop
-const resetThreshold = 15; 
+const resetThreshold = 15;
 const totalLength = config.roadCount * config.roadLength;
 const clock = new THREE.Clock();
 const speedDisplay = document.getElementById('speed-value');
@@ -235,8 +246,35 @@ let carSteer = 0;
 // --- Tambahkan variabel ini di atas fungsi draw() ---
 let speedMultiplier = 0; // Untuk transisi akselerasi
 
+// ===== TIMER & SCORE =====
+let timeLeft = 60;          // detik
+let distance = 0;          // meter
+let gameOver = false;
+
+const timeDisplay = document.getElementById('time-value');
+const scoreDisplay = document.getElementById('score-value');
+const gameOverScreen = document.getElementById('game-over');
+const finalScoreText = document.getElementById('final-score');
+
+
 function draw() {
     const delta = clock.getDelta();
+    if (gameStarted && !gameOver) {
+
+        // Timer
+        timeLeft -= delta;
+        if (timeLeft <= 0) {
+            timeLeft = 0;
+            endGame();
+        }
+        timeDisplay.textContent = Math.ceil(timeLeft);
+
+        // Score berdasarkan jarak
+        const meterPerSecond = 20; // atur di sini (realistis)
+        distance += meterPerSecond * speedMultiplier * delta;
+        scoreDisplay.textContent = Math.floor(distance);
+    }
+
     const time = clock.getElapsedTime();
 
     // 1. Logika Update Mobil (Dijalankan baik saat idle maupun main agar posisi sama)
@@ -273,7 +311,7 @@ function draw() {
     }
 
     // 2. Logika Pergerakan Lingkungan
-    if (gameStarted) {
+    if (gameStarted && !gameOver) {
 
         const currentSpeed = config.speed * speedMultiplier;
         // Transisi akselerasi halus dari 0 ke config.speed
@@ -303,16 +341,16 @@ function draw() {
         }
 
         // Update posisi obstacles
-        for (let i = obstacles.length - 1; i >= 0; i--){
+        for (let i = obstacles.length - 1; i >= 0; i--) {
             const obs = obstacles[i];
             obs.position.z += config.speed * speedMultiplier;
 
             // Hapus obstacle jika sudah melewati mobil
-            if(car){
+            if (car) {
                 const dx = carPosX - obs.position.x;
-                const dz = 0 - obs.position.z; 
+                const dz = 0 - obs.position.z;
                 const distance = Math.sqrt(dx * dx + dz * dz);
-                if(distance < 1.2){
+                if (distance < 1.2) {
                     speedMultiplier = 0.02; //slow
 
                     scene.remove(obs);
@@ -334,6 +372,15 @@ function draw() {
 }
 
 draw();
+
+function endGame() {
+    gameOver = true;
+    gameStarted = false;
+
+    finalScoreText.textContent = Math.floor(distance) + " M";
+    gameOverScreen.style.display = "flex";
+}
+
 
 window.addEventListener('resize', () => {
     cam.aspect = window.innerWidth / window.innerHeight;
