@@ -3,9 +3,9 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 // Konfigurasi dasar
 const config = {
-    speed: 1,         // kecepatan mobil
+    speed: 0.7,         // kecepatan mobil
     roadLength: 2.5,    // Panjang setiap potongan jalan
-    roadCount: 100,      // Jarak pandang jalan
+    roadCount: 150,      // Jarak pandang jalan
     roadWidth: 14,      // Lebar jalan
     steeringSpeed: 0.05, // Kecepatan kemudi
     maxSteerX: 5,     // Batas kemudi
@@ -20,7 +20,7 @@ scene.background = new THREE.Color(0x87ceeb);
 // Efek kabut
 scene.fog = new THREE.FogExp2(0x87ceeb, 0.009);
 const cam = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.05, 1000);
-// Kamera diposisikan sedikit lebih rendah untuk kesan kecepatan
+// Kamera diposisikan sedikit lebih rendah
 cam.position.set(0, 5, 12);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
@@ -114,18 +114,6 @@ async function loadAssets() {
         const z = -i * config.roadLength;
         const road = roadModel.clone();
 
-        // Loop untuk mencari dan menghilangkan garis kuning
-        road.traverse(n => {
-            if (n.isMesh) {
-                // Cek nama mesh sesuai yang kamu temukan di editor
-                if (n.name === "mesh1357725606_1") {
-                    n.visible = false; // Cara 1: Sembunyikan
-                    // n.geometry.dispose(); // Cara 2: Hapus dari memori agar lebih ringan
-                }
-                n.receiveShadow = true;
-            }
-        });
-
         road.scale.set(config.roadWidth, 1, 1);
         road.position.z = z;
         road.traverse(n => { if (n.isMesh) n.receiveShadow = true; });
@@ -154,18 +142,6 @@ async function loadAssets() {
     car.matrixAutoUpdate = false;
     scene.add(car);
 
-    // warna body mobil
-    //     car.traverse((child) => {
-    //     if (child.isMesh) {
-    //         if (child.name === "main_car_1") { 
-    //             child.material.color.set(0xffff00); 
-    //             child.material.metalness = 0.8;
-    //             child.material.roughness = 0.2;
-    //         }
-    //         child.castShadow = true;
-    //     }
-    // });
-
     //load obstacles models
     const coneGLTF = await loader.loadAsync('./models/Traffic Cone.glb');
     coneModel = coneGLTF.scene;
@@ -192,7 +168,7 @@ function spawnObstacle() {
 
     const randomX = (Math.random() - 0.5) * (config.maxSteerX * 2);
 
-    obstacle.position.set(randomX, 0, -100);
+    obstacle.position.set(randomX, 0, -150);
 
     scene.add(obstacle);
     obstacles.push(obstacle);
@@ -243,10 +219,8 @@ const speedDisplay = document.getElementById('speed-value');
 let carTilt = 0;
 let carSteer = 0;
 
-// --- Tambahkan variabel ini di atas fungsi draw() ---
 let speedMultiplier = 0; // Untuk transisi akselerasi
 
-// ===== TIMER & SCORE =====
 let timeLeft = 60;          // detik
 let distance = 0;          // meter
 let gameOver = false;
@@ -314,8 +288,8 @@ function draw() {
     if (gameStarted && !gameOver) {
 
         const currentSpeed = config.speed * speedMultiplier;
-        // Transisi akselerasi halus dari 0 ke config.speed
-        speedMultiplier = THREE.MathUtils.lerp(speedMultiplier, 1, 0.003);
+        
+        speedMultiplier = THREE.MathUtils.lerp(speedMultiplier, 1, 0.001);
 
         for (let i = 0; i < roads.length; i++) {
             roads[i].position.z += currentSpeed;
@@ -327,7 +301,7 @@ function draw() {
             }
         }
         // Update speedometer
-        const currentKmh = Math.floor(currentSpeed * 100);
+        const currentKmh = Math.floor(currentSpeed * 125);
         speedDisplay.textContent = currentKmh.toString();
     }
 
