@@ -3,9 +3,9 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 // Konfigurasi dasar
 const config = {
-    speed: 0.7,         // kecepatan mobil
+    speed: 1,         // kecepatan mobil
     roadLength: 2.5,    // Panjang setiap potongan jalan
-    roadCount: 150,      // Jarak pandang jalan
+    roadCount: 100,      // Jarak pandang jalan
     roadWidth: 14,      // Lebar jalan
     steeringSpeed: 0.05, // Kecepatan kemudi
     maxSteerX: 5,     // Batas kemudi
@@ -20,7 +20,7 @@ scene.background = new THREE.Color(0x87ceeb);
 // Efek kabut
 scene.fog = new THREE.FogExp2(0x87ceeb, 0.009);
 const cam = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.05, 1000);
-// Kamera diposisikan sedikit lebih rendah
+// Kamera diposisikan sedikit lebih rendah untuk kesan kecepatan
 cam.position.set(0, 5, 12);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
@@ -114,6 +114,18 @@ async function loadAssets() {
         const z = -i * config.roadLength;
         const road = roadModel.clone();
 
+        // Loop untuk mencari dan menghilangkan garis kuning
+        road.traverse(n => {
+            if (n.isMesh) {
+                // Cek nama mesh sesuai yang kamu temukan di editor
+                if (n.name === "mesh1357725606_1") {
+                    n.visible = false; // Cara 1: Sembunyikan
+                    // n.geometry.dispose(); // Cara 2: Hapus dari memori agar lebih ringan
+                }
+                n.receiveShadow = true;
+            }
+        });
+
         road.scale.set(config.roadWidth, 1, 1);
         road.position.z = z;
         road.traverse(n => { if (n.isMesh) n.receiveShadow = true; });
@@ -142,6 +154,18 @@ async function loadAssets() {
     car.matrixAutoUpdate = false;
     scene.add(car);
 
+    // warna body mobil
+    //     car.traverse((child) => {
+    //     if (child.isMesh) {
+    //         if (child.name === "main_car_1") { 
+    //             child.material.color.set(0xffff00); 
+    //             child.material.metalness = 0.8;
+    //             child.material.roughness = 0.2;
+    //         }
+    //         child.castShadow = true;
+    //     }
+    // });
+
     //load obstacles models
     const coneGLTF = await loader.loadAsync('./models/Traffic Cone.glb');
     coneModel = coneGLTF.scene;
@@ -150,6 +174,18 @@ async function loadAssets() {
     const fenceGLTF = await loader.loadAsync('./models/Fence Long.glb');
     fenceModel = fenceGLTF.scene;
     fenceModel.traverse(n => { if (n.isMesh) n.castShadow = true; });
+
+    // Load model Alarm Clock dari Poly Pizza
+    const clockGLTF = await loader.loadAsync('./models/Alarm Clock.glb');
+    clockModel = clockGLTF.scene;
+    clockModel.traverse(n => {
+        if (n.isMesh) {
+            n.castShadow = true;
+            // Opsional: berikan efek emisi agar jam terlihat bercahaya
+            n.material.emissive = new THREE.Color(0xffff00);
+            n.material.emissiveIntensity = 0.2;
+        }
+    });
 
 
     draw();
@@ -168,10 +204,28 @@ function spawnObstacle() {
 
     const randomX = (Math.random() - 0.5) * (config.maxSteerX * 2);
 
-    obstacle.position.set(randomX, 0, -150);
+    obstacle.position.set(randomX, 0, -100);
 
     scene.add(obstacle);
     obstacles.push(obstacle);
+}
+
+
+let clockModel; 
+let items = []; 
+function spawnClock() {
+    if (!gameStarted || !clockModel) return;
+
+    const clockItem = clockModel.clone();
+    // Skala 15-20 biasanya pas untuk props Poly Pizza agar terlihat oleh pemain
+    clockItem.scale.set(18, 18, 18);
+
+    const randomX = (Math.random() - 0.5) * (config.maxSteerX * 2);
+    // Posisi Y 0.8 agar jam terlihat melayang sedikit di atas aspal
+    clockItem.position.set(randomX, 0.8, -100);
+
+    scene.add(clockItem);
+    items.push(clockItem);
 }
 
 
@@ -219,8 +273,10 @@ const speedDisplay = document.getElementById('speed-value');
 let carTilt = 0;
 let carSteer = 0;
 
+// --- Tambahkan variabel ini di atas fungsi draw() ---
 let speedMultiplier = 0; // Untuk transisi akselerasi
 
+// ===== TIMER & SCORE =====
 let timeLeft = 60;          // detik
 let distance = 0;          // meter
 let gameOver = false;
@@ -288,8 +344,8 @@ function draw() {
     if (gameStarted && !gameOver) {
 
         const currentSpeed = config.speed * speedMultiplier;
-        
-        speedMultiplier = THREE.MathUtils.lerp(speedMultiplier, 1, 0.001);
+        // Transisi akselerasi halus dari 0 ke config.speed
+        speedMultiplier = THREE.MathUtils.lerp(speedMultiplier, 1, 0.003);
 
         for (let i = 0; i < roads.length; i++) {
             roads[i].position.z += currentSpeed;
@@ -301,7 +357,7 @@ function draw() {
             }
         }
         // Update speedometer
-        const currentKmh = Math.floor(currentSpeed * 125);
+        const currentKmh = Math.floor(currentSpeed * 100);
         speedDisplay.textContent = currentKmh.toString();
     }
 
@@ -338,6 +394,64 @@ function draw() {
                 scene.remove(obs);
                 obstacles.splice(i, 1);
             }
+        }
+    }
+
+    // logika spawn clock
+    if (gameStarted && !gameOver) {
+        const currentSpeed = config.speed * speedMultiplier;
+        speedMultiplier = THREE.MathUtils.lerp(speedMultiplier, 1, 0.003);
+
+        for (let i = 0; i < roads.length; i++) {
+            roads[i].position.z += currentSpeed;
+            environments[i].position.z += currentSpeed;
+            if (roads[i].position.z > resetThreshold) {
+                roads[i].position.z -= totalLength;
+                environments[i].position.z -= totalLength;
+            }
+        }
+        speedDisplay.textContent = Math.floor(currentSpeed * 100).toString();
+
+        spawnTimer += delta;
+        if (spawnTimer > 1.5) {
+            spawnObstacle();
+            // --- LOGIKA RANDOM SPAWN JAM ---
+            // Hanya spawn jam jika angka random (0-1) di bawah 0.15 (peluang 15%)
+            if (Math.random() < 0.15) { 
+                spawnClock();
+            }
+            spawnTimer = 0;
+        }
+
+        // Update Obstacles
+        for (let i = obstacles.length - 1; i >= 0; i--) {
+            const obs = obstacles[i];
+            obs.position.z += currentSpeed;
+            const dx = carPosX - obs.position.x;
+            const dz = 0 - obs.position.z;
+            if (Math.sqrt(dx * dx + dz * dz) < 1.2) {
+                speedMultiplier = 0.02;
+                scene.remove(obs);
+                obstacles.splice(i, 1);
+                continue;
+            }
+            if (obs.position.z > resetThreshold) { scene.remove(obs); obstacles.splice(i, 1); }
+        }
+
+        // Update Items (Jam)
+        for (let i = items.length - 1; i >= 0; i--) {
+            const item = items[i];
+            item.position.z += currentSpeed;
+            item.rotation.y += delta * 2; // Animasi putar
+            const dx = carPosX - item.position.x;
+            const dz = 0 - item.position.z;
+            if (Math.sqrt(dx * dx + dz * dz) < 1.5) {
+                timeLeft += 5; // Tambah 10 detik
+                scene.remove(item);
+                items.splice(i, 1);
+                continue;
+            }
+            if (item.position.z > resetThreshold) { scene.remove(item); items.splice(i, 1); }
         }
     }
 
