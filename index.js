@@ -3,11 +3,11 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 // Konfigurasi dasar
 const config = {
-    speed: 1,         // kecepatan mobil
+    speed: 0.8,         // kecepatan mobil
     roadLength: 2.5,    // Panjang setiap potongan jalan
-    roadCount: 100,      // Jarak pandang jalan
+    roadCount: 150,      // Jarak pandang jalan
     roadWidth: 14,      // Lebar jalan
-    steeringSpeed: 0.05, // Kecepatan kemudi
+    steeringSpeed: 0.03, // Kecepatan kemudi
     maxSteerX: 5,     // Batas kemudi
     sandWidth: 10,      // Lebar pantai
     waterWidth: 200,    // Luas laut
@@ -18,7 +18,7 @@ const scene = new THREE.Scene();
 // Warna langit
 scene.background = new THREE.Color(0x87ceeb);
 // Efek kabut
-scene.fog = new THREE.FogExp2(0x87ceeb, 0.009);
+scene.fog = new THREE.FogExp2(0x87ceeb, 0.005);
 const cam = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.05, 1000);
 // Kamera diposisikan sedikit lebih rendah untuk kesan kecepatan
 cam.position.set(0, 5, 12);
@@ -43,13 +43,13 @@ scene.add(sun);
 
 // Loader tekstur pantai
 const textureLoader = new THREE.TextureLoader();
-const waterTexture = textureLoader.load('./img/water_texture.png');
+const waterTexture = textureLoader.load('./img/water_tex.jpg');
 waterTexture.wrapS = waterTexture.wrapT = THREE.RepeatWrapping;
-waterTexture.repeat.set(5, 5);
+waterTexture.repeat.set(50, 1);
 
 const sandTexture = textureLoader.load('./img/sand_texture.jpg');
 sandTexture.wrapS = sandTexture.wrapT = THREE.RepeatWrapping;
-sandTexture.repeat.set(1, 10);
+sandTexture.repeat.set(50, 1);
 
 // control mulai game
 let gameStarted = false;
@@ -74,8 +74,11 @@ function pantai(zPos) {
     const sandMat = new THREE.MeshStandardMaterial({ map: sandTexture, roughness: 0.8 });
     const waterMat = new THREE.MeshStandardMaterial({
         map: waterTexture,
-        roughness: 0.8,
-        metalness: 0.1,
+        color: 0x4060ff,
+        roughness: 0.1,
+        metalness: 0.4,
+        transparent: true,
+        opacity: 0.9,
     });
 
     const sandGeo = new THREE.PlaneGeometry(config.sandWidth, config.roadLength);
@@ -105,6 +108,8 @@ function pantai(zPos) {
 
 // Load Objek 3d
 async function loadAssets() {
+    // load
+
 
     // Load Jalan
     const roadGLTF = await loader.loadAsync('./models/Road Piece Straight.glb');
@@ -113,18 +118,6 @@ async function loadAssets() {
     for (let i = -2; i < config.roadCount; i++) {
         const z = -i * config.roadLength;
         const road = roadModel.clone();
-
-        // Loop untuk mencari dan menghilangkan garis kuning
-        road.traverse(n => {
-            if (n.isMesh) {
-                // Cek nama mesh sesuai yang kamu temukan di editor
-                if (n.name === "mesh1357725606_1") {
-                    n.visible = false; // Cara 1: Sembunyikan
-                    // n.geometry.dispose(); // Cara 2: Hapus dari memori agar lebih ringan
-                }
-                n.receiveShadow = true;
-            }
-        });
 
         road.scale.set(config.roadWidth, 1, 1);
         road.position.z = z;
@@ -154,26 +147,16 @@ async function loadAssets() {
     car.matrixAutoUpdate = false;
     scene.add(car);
 
-    // warna body mobil
-    //     car.traverse((child) => {
-    //     if (child.isMesh) {
-    //         if (child.name === "main_car_1") { 
-    //             child.material.color.set(0xffff00); 
-    //             child.material.metalness = 0.8;
-    //             child.material.roughness = 0.2;
-    //         }
-    //         child.castShadow = true;
-    //     }
-    // });
 
     //load obstacles models
     const coneGLTF = await loader.loadAsync('./models/Traffic Cone.glb');
     coneModel = coneGLTF.scene;
     coneModel.traverse(n => { if (n.isMesh) n.castShadow = true; });
 
-    const fenceGLTF = await loader.loadAsync('./models/Fence Long.glb');
-    fenceModel = fenceGLTF.scene;
-    fenceModel.traverse(n => { if (n.isMesh) n.castShadow = true; });
+    
+    const brokenCarGLTF = await loader.loadAsync('./models/Broken Car.glb');
+    brokenCarModel = brokenCarGLTF.scene;
+    brokenCarModel.traverse(n => { if (n.isMesh) n.castShadow = true; });
 
     // Load model Alarm Clock dari Poly Pizza
     const clockGLTF = await loader.loadAsync('./models/Alarm Clock.glb');
@@ -187,6 +170,8 @@ async function loadAssets() {
         }
     });
 
+    
+
 
     draw();
 }
@@ -194,35 +179,47 @@ async function loadAssets() {
 loadAssets();
 
 function spawnObstacle() {
-    if (!gameStarted) return;
+    if (!gameStarted || gameOver) return;
 
-    const isCone = Math.random() > 0.5;
-    const obstacle = isCone ? coneModel.clone() : fenceModel.clone();
+    const spawnType = Math.random();
+    let obstacle;
 
-    const scale = isCone ? 2 : 1.5;
-    obstacle.scale.set(scale, scale, scale);
-
+    if (spawnType > 0.2) {
+        obstacle = coneModel.clone();
+        obstacle.scale.set(2, 2, 2);
+        obstacle.userData.type = "slow";
+    } else {
+        obstacle = brokenCarModel.clone();
+        obstacle.scale.set(1, 1, 1);
+        obstacle.userData.type = "death";
+        
+        obstacle.rotation.y = Math.random() * Math.PI * 2; 
+        if (Math.random() > 0.5) {
+            obstacle.rotation.z = Math.PI; 
+            obstacle.position.y = 1.2;     
+        }
+    }
     const randomX = (Math.random() - 0.5) * (config.maxSteerX * 2);
-
-    obstacle.position.set(randomX, 0, -100);
-
+    obstacle.position.set(randomX, obstacle.position.y || 0, -250); 
+    
     scene.add(obstacle);
     obstacles.push(obstacle);
+
+    
 }
 
 
 let clockModel; 
 let items = []; 
+
 function spawnClock() {
     if (!gameStarted || !clockModel) return;
 
     const clockItem = clockModel.clone();
-    // Skala 15-20 biasanya pas untuk props Poly Pizza agar terlihat oleh pemain
     clockItem.scale.set(18, 18, 18);
 
     const randomX = (Math.random() - 0.5) * (config.maxSteerX * 2);
-    // Posisi Y 0.8 agar jam terlihat melayang sedikit di atas aspal
-    clockItem.position.set(randomX, 0.8, -100);
+    clockItem.position.set(randomX, 0.8, -250);
 
     scene.add(clockItem);
     items.push(clockItem);
@@ -260,10 +257,6 @@ window.addEventListener('keyup', (e) => {
 });
 
 
-let obstacles = [];
-let coneModel, fenceModel;
-let spawnTimer = 0;
-
 // Animasi Loop
 const resetThreshold = 15;
 const totalLength = config.roadCount * config.roadLength;
@@ -272,13 +265,14 @@ const speedDisplay = document.getElementById('speed-value');
 
 let carTilt = 0;
 let carSteer = 0;
+let speedMultiplier = 0; 
+let obstacles = [];
+let coneModel, fenceModel, brokenCarModel;
+let spawnTimer = 0;
 
-// --- Tambahkan variabel ini di atas fungsi draw() ---
-let speedMultiplier = 0; // Untuk transisi akselerasi
-
-// ===== TIMER & SCORE =====
-let timeLeft = 60;          // detik
-let distance = 0;          // meter
+// TImer dan Score
+let timeLeft = 60;          
+let distance = 0;          
 let gameOver = false;
 
 const timeDisplay = document.getElementById('time-value');
@@ -300,25 +294,25 @@ function draw() {
         timeDisplay.textContent = Math.ceil(timeLeft);
 
         // Score berdasarkan jarak
-        const meterPerSecond = 20; // atur di sini (realistis)
+        const meterPerSecond = 20; 
         distance += meterPerSecond * speedMultiplier * delta;
         scoreDisplay.textContent = Math.floor(distance);
     }
 
     const time = clock.getElapsedTime();
 
-    // 1. Logika Update Mobil (Dijalankan baik saat idle maupun main agar posisi sama)
+    // 1. Logika Mobil
     if (car) {
         if (gameStarted) {
             // Kontrol input hanya aktif jika game sudah dimulai
             if (keys.a || keys.ArrowLeft) {
                 carPosX -= config.steeringSpeed;
                 carTilt = THREE.MathUtils.lerp(carTilt, 0.2, 0.1);
-                carSteer = THREE.MathUtils.lerp(carSteer, 0.1, 0.1);
+                carSteer = THREE.MathUtils.lerp(carSteer, 0.1, 0.05);
             } else if (keys.d || keys.ArrowRight) {
                 carPosX += config.steeringSpeed;
                 carTilt = THREE.MathUtils.lerp(carTilt, -0.2, 0.1);
-                carSteer = THREE.MathUtils.lerp(carSteer, -0.1, 0.1);
+                carSteer = THREE.MathUtils.lerp(carSteer, -0.1, 0.05);
             } else {
                 carTilt = THREE.MathUtils.lerp(carTilt, 0, 0.1);
                 carSteer = THREE.MathUtils.lerp(carSteer, 0, 0.1);
@@ -340,12 +334,11 @@ function draw() {
         cam.lookAt(carPosX * 0.05, 1, -10);
     }
 
-    // 2. Logika Pergerakan Lingkungan
+    // 2. Logika jalan
     if (gameStarted && !gameOver) {
 
         const currentSpeed = config.speed * speedMultiplier;
-        // Transisi akselerasi halus dari 0 ke config.speed
-        speedMultiplier = THREE.MathUtils.lerp(speedMultiplier, 1, 0.003);
+        speedMultiplier = THREE.MathUtils.lerp(speedMultiplier, 1, 0.001);
 
         for (let i = 0; i < roads.length; i++) {
             roads[i].position.z += currentSpeed;
@@ -356,8 +349,34 @@ function draw() {
                 environments[i].position.z -= totalLength;
             }
         }
+
+        //spawn clock
+        spawnTimer += delta;
+        if (spawnTimer > 1.5) {
+            spawnObstacle();
+            if (Math.random() < 0.15) { 
+                spawnClock();
+            }
+            spawnTimer = 0;
+        }
+        for (let i = items.length - 1; i >= 0; i--) {
+            const item = items[i];
+            item.position.z += currentSpeed;
+            item.rotation.y += delta * 2; // Animasi putar
+            const dx = carPosX - item.position.x;
+            const dz = 0 - item.position.z;
+            if (Math.sqrt(dx * dx + dz * dz) < 1.5) {
+                timeLeft += 3; // Tambah 3 detik
+                scene.remove(item);
+                items.splice(i, 1);
+                continue;
+            }
+            if (item.position.z > resetThreshold) { scene.remove(item); items.splice(i, 1); }
+        }
+
+
         // Update speedometer
-        const currentKmh = Math.floor(currentSpeed * 100);
+        const currentKmh = Math.floor(currentSpeed * 125);
         speedDisplay.textContent = currentKmh.toString();
     }
 
@@ -365,7 +384,7 @@ function draw() {
 
     if (gameStarted) {
         spawnTimer += delta;
-        if (spawnTimer > 1.5) { // spawn setiap 1.5 detik
+        if (spawnTimer > 1.5) { 
             spawnObstacle();
             spawnTimer = 0;
         }
@@ -376,82 +395,30 @@ function draw() {
             obs.position.z += config.speed * speedMultiplier;
 
             // Hapus obstacle jika sudah melewati mobil
-            if (car) {
-                const dx = carPosX - obs.position.x;
-                const dz = 0 - obs.position.z;
-                const distance = Math.sqrt(dx * dx + dz * dz);
-                if (distance < 1.2) {
-                    speedMultiplier = 0.02; //slow
+            if (car && !gameOver) {
+                const carBox = new THREE.Box3().setFromCenterAndSize(
+                    new THREE.Vector3(carPosX, 0.5, 0),
+                    new THREE.Vector3(1, 1, 1)
+                );
+                const obsBox = new THREE.Box3().setFromObject(obs);
 
+                if (carBox.intersectsBox(obsBox)) {
+                    if (obs.userData.type === "death") {
+                        endGame();
+                    } else {
+                    speedMultiplier = 0.01; 
                     scene.remove(obs);
                     obstacles.splice(i, 1);
                     continue;
-
+                    }
                 }
+
             }
 
             if (obs.position.z > resetThreshold) {
                 scene.remove(obs);
                 obstacles.splice(i, 1);
             }
-        }
-    }
-
-    // logika spawn clock
-    if (gameStarted && !gameOver) {
-        const currentSpeed = config.speed * speedMultiplier;
-        speedMultiplier = THREE.MathUtils.lerp(speedMultiplier, 1, 0.003);
-
-        for (let i = 0; i < roads.length; i++) {
-            roads[i].position.z += currentSpeed;
-            environments[i].position.z += currentSpeed;
-            if (roads[i].position.z > resetThreshold) {
-                roads[i].position.z -= totalLength;
-                environments[i].position.z -= totalLength;
-            }
-        }
-        speedDisplay.textContent = Math.floor(currentSpeed * 100).toString();
-
-        spawnTimer += delta;
-        if (spawnTimer > 1.5) {
-            spawnObstacle();
-            // --- LOGIKA RANDOM SPAWN JAM ---
-            // Hanya spawn jam jika angka random (0-1) di bawah 0.15 (peluang 15%)
-            if (Math.random() < 0.15) { 
-                spawnClock();
-            }
-            spawnTimer = 0;
-        }
-
-        // Update Obstacles
-        for (let i = obstacles.length - 1; i >= 0; i--) {
-            const obs = obstacles[i];
-            obs.position.z += currentSpeed;
-            const dx = carPosX - obs.position.x;
-            const dz = 0 - obs.position.z;
-            if (Math.sqrt(dx * dx + dz * dz) < 1.2) {
-                speedMultiplier = 0.02;
-                scene.remove(obs);
-                obstacles.splice(i, 1);
-                continue;
-            }
-            if (obs.position.z > resetThreshold) { scene.remove(obs); obstacles.splice(i, 1); }
-        }
-
-        // Update Items (Jam)
-        for (let i = items.length - 1; i >= 0; i--) {
-            const item = items[i];
-            item.position.z += currentSpeed;
-            item.rotation.y += delta * 2; // Animasi putar
-            const dx = carPosX - item.position.x;
-            const dz = 0 - item.position.z;
-            if (Math.sqrt(dx * dx + dz * dz) < 1.5) {
-                timeLeft += 5; // Tambah 10 detik
-                scene.remove(item);
-                items.splice(i, 1);
-                continue;
-            }
-            if (item.position.z > resetThreshold) { scene.remove(item); items.splice(i, 1); }
         }
     }
 
