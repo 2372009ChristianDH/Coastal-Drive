@@ -7,7 +7,7 @@ const config = {
     roadLength: 2.5,    // Panjang setiap potongan jalan
     roadCount: 150,      // Jarak pandang jalan
     roadWidth: 14,      // Lebar jalan
-    steeringSpeed: 0.03, // Kecepatan kemudi
+    steeringSpeed: 0.05, // Kecepatan kemudi
     maxSteerX: 5,     // Batas kemudi
     sandWidth: 10,      // Lebar pantai
     waterWidth: 200,    // Luas laut
@@ -20,7 +20,6 @@ scene.background = new THREE.Color(0x87ceeb);
 // Efek kabut
 scene.fog = new THREE.FogExp2(0x87ceeb, 0.005);
 const cam = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.05, 1000);
-// Kamera diposisikan sedikit lebih rendah untuk kesan kecepatan
 cam.position.set(0, 5, 12);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
@@ -39,6 +38,16 @@ scene.add(ambient);
 const sun = new THREE.DirectionalLight(0xffebc2, 1.5);
 sun.position.set(50, 100, 50);
 sun.castShadow = true;
+
+// Pengaturan kualitas dan jangkauan bayangan
+sun.shadow.mapSize.width = 2048;
+sun.shadow.mapSize.height = 2048;
+sun.shadow.camera.near = 0.5;
+sun.shadow.camera.far = 500;
+sun.shadow.camera.left = -100;
+sun.shadow.camera.right = 100;
+sun.shadow.camera.top = 100;
+sun.shadow.camera.bottom = -100;
 scene.add(sun);
 
 // Loader tekstur pantai
@@ -71,14 +80,13 @@ let keys = {
 // Fungsi membuat pantai
 function pantai(zPos) {
     const group = new THREE.Group();
-    const sandMat = new THREE.MeshStandardMaterial({ map: sandTexture, roughness: 0.8 });
+    const sandMat = new THREE.MeshStandardMaterial({ map: sandTexture, roughness: 0.8, metalness: 0.4 });
     const waterMat = new THREE.MeshStandardMaterial({
         map: waterTexture,
-        color: 0x4060ff,
+        color: 0x1060ff,
         roughness: 0.1,
         metalness: 0.4,
         transparent: true,
-        opacity: 0.9,
     });
 
     const sandGeo = new THREE.PlaneGeometry(config.sandWidth, config.roadLength);
@@ -94,6 +102,26 @@ function pantai(zPos) {
     sandL.position.x = -sandR.position.x;
     group.add(sandL);
 
+    // spawn pohon kelapa
+    if (palmTreeModel) {
+        if (Math.random() > 0.9) { 
+            const tree = palmTreeModel.clone();
+            const side = Math.random() > 0.5 ? 1 : -1;
+            
+            // Posisi di area pasir
+            const treeX = (config.roadWidth / 2 + 2 + Math.random() * 5) * side;
+            
+            // Skala
+            const s = 0.3 + Math.random() * 0.3;
+            tree.scale.set(s, s, s);
+            
+            tree.position.set(treeX, -1, zPos);
+            tree.rotation.y = Math.random() * Math.PI;
+            
+            group.add(tree);
+        }
+    }
+
     const waterR = new THREE.Mesh(waterGeo, waterMat);
     waterR.rotation.x = -Math.PI / 2;
     waterR.position.set(sandR.position.x + config.sandWidth / 2 + config.waterWidth / 2, -1.05, zPos);
@@ -108,8 +136,15 @@ function pantai(zPos) {
 
 // Load Objek 3d
 async function loadAssets() {
-    // load
-
+    // load pohon kelapa
+    const palmGLTF = await loader.loadAsync('./models/Coconut palm tree.glb');
+    palmTreeModel = palmGLTF.scene;
+    palmTreeModel.traverse(n => {
+        if (n.isMesh) {
+            n.castShadow = true;
+            n.receiveShadow = true;
+        }
+    });
 
     // Load Jalan
     const roadGLTF = await loader.loadAsync('./models/Road Piece Straight.glb');
@@ -121,8 +156,9 @@ async function loadAssets() {
 
         road.scale.set(config.roadWidth, 1, 1);
         road.position.z = z;
-        road.traverse(n => { if (n.isMesh) n.receiveShadow = true; });
-
+        road.traverse(n => { if (n.isMesh) {
+            n.receiveShadow = true; 
+        }});
         scene.add(road);
         roads.push(road);
 
@@ -134,29 +170,26 @@ async function loadAssets() {
     // Load Mobil
     const carGLTF = await loader.loadAsync('./models/Car Hatchback.glb');
     car = carGLTF.scene;
-
     car.scale.set(5, 5, 5);
-
     car.traverse(n => {
         if (n.isMesh) {
             n.castShadow = true;
             n.receiveShadow = true;
         }
     });
-
     car.matrixAutoUpdate = false;
     scene.add(car);
-
 
     //load obstacles models
     const coneGLTF = await loader.loadAsync('./models/Traffic Cone.glb');
     coneModel = coneGLTF.scene;
     coneModel.traverse(n => { if (n.isMesh) n.castShadow = true; });
 
-    
     const brokenCarGLTF = await loader.loadAsync('./models/Broken Car.glb');
     brokenCarModel = brokenCarGLTF.scene;
-    brokenCarModel.traverse(n => { if (n.isMesh) n.castShadow = true; });
+    brokenCarModel.traverse(n => { if (n.isMesh) {
+        n.castShadow = true; 
+    }});
 
     // Load model Alarm Clock dari Poly Pizza
     const clockGLTF = await loader.loadAsync('./models/Alarm Clock.glb');
@@ -164,14 +197,10 @@ async function loadAssets() {
     clockModel.traverse(n => {
         if (n.isMesh) {
             n.castShadow = true;
-            // Opsional: berikan efek emisi agar jam terlihat bercahaya
             n.material.emissive = new THREE.Color(0xffff00);
             n.material.emissiveIntensity = 0.2;
         }
     });
-
-    
-
 
     draw();
 }
@@ -208,7 +237,6 @@ function spawnObstacle() {
     
 }
 
-
 let clockModel; 
 let items = []; 
 
@@ -227,7 +255,6 @@ function spawnClock() {
 
 
 // Kontrol Keyboard
-
 window.addEventListener('keydown', (e) => {
     if (keys.hasOwnProperty(e.key)) keys[e.key] = true;
 
@@ -236,7 +263,7 @@ window.addEventListener('keydown', (e) => {
         gameOver = false;
 
         // RESET TIMER & SCORE
-        timeLeft = 60;
+        timeLeft = 100;
         distance = 0;
 
         timeDisplay.textContent = timeLeft;
@@ -250,12 +277,17 @@ window.addEventListener('keydown', (e) => {
         }, 500);
     }
 
+    const restartBtn = document.getElementById('restart-btn');
+
+    restartBtn.addEventListener('click', () => {
+        window.location.reload();
+    });
+
 });
 
 window.addEventListener('keyup', (e) => {
     if (keys.hasOwnProperty(e.key)) keys[e.key] = false;
 });
-
 
 // Animasi Loop
 const resetThreshold = 15;
@@ -270,8 +302,10 @@ let obstacles = [];
 let coneModel, fenceModel, brokenCarModel;
 let spawnTimer = 0;
 
+let palmTreeModel;
+
 // TImer dan Score
-let timeLeft = 60;          
+let timeLeft = 100;          
 let distance = 0;          
 let gameOver = false;
 
@@ -366,7 +400,7 @@ function draw() {
             const dx = carPosX - item.position.x;
             const dz = 0 - item.position.z;
             if (Math.sqrt(dx * dx + dz * dz) < 1.5) {
-                timeLeft += 3; // Tambah 3 detik
+                timeLeft += 5; // Tambah 5 detik
                 scene.remove(item);
                 items.splice(i, 1);
                 continue;
@@ -374,14 +408,12 @@ function draw() {
             if (item.position.z > resetThreshold) { scene.remove(item); items.splice(i, 1); }
         }
 
-
         // Update speedometer
         const currentKmh = Math.floor(currentSpeed * 125);
         speedDisplay.textContent = currentKmh.toString();
     }
 
     //3. Logika obstacle slowdown
-
     if (gameStarted) {
         spawnTimer += delta;
         if (spawnTimer > 1.5) { 
@@ -412,9 +444,7 @@ function draw() {
                     continue;
                     }
                 }
-
             }
-
             if (obs.position.z > resetThreshold) {
                 scene.remove(obs);
                 obstacles.splice(i, 1);

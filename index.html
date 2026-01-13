@@ -192,17 +192,56 @@
             letter-spacing: -2px;
         }
 
-        #game-over{
+        /* Perbaikan Tampilan Game Over */
+        #game-over {
             position: absolute;
             inset: 0;
             display: none;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
-            background: rgba(0,0,0,0.85);
+            background: rgba(0, 0, 0, 0.9); /* Lebih gelap agar dramatis */
             color: white;
-            z-index: 20;
+            z-index: 100;
             text-align: center;
             font-family: 'Bungee', cursive;
+            backdrop-filter: blur(8px); /* Efek blur di belakang */
+        }
+
+        #game-over h1 {
+            font-size: 80px;
+            margin: 0;
+            color: #ff4757; /* Warna merah terang */
+            text-shadow: 0 0 20px rgba(255, 71, 87, 0.5);
+            transform: skew(-5deg);
+        }
+
+        #final-score {
+            font-size: 60px;
+            color: #ffd700;
+            margin: 20px 0;
+            text-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
+        }
+
+        #restart-btn {
+            margin-top: 30px;
+            padding: 15px 40px;
+            font-family: 'Bungee', cursive;
+            font-size: 20px;
+            background: transparent;
+            color: white;
+            border: 3px solid white;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            letter-spacing: 2px;
+        }
+
+        #restart-btn:hover {
+            background: white;
+            color: black;
+            transform: scale(1.1);
+            box-shadow: 0 0 30px rgba(255, 255, 255, 0.4);
         }
     </style>
 </head>
@@ -218,7 +257,7 @@
     </div>
     <div id="timer">
         <span class="unit">TIME</span>
-        <div id="time-value">60</div>
+        <div id="time-value">100</div>
     </div>
 
     <div id="dashboard">
